@@ -115,9 +115,15 @@ function setupStickControls() {
     });
 }
 
-window.addEventListener('load', () => {
+// Sayfa yüklendiğinde başlat
+window.addEventListener('DOMContentLoaded', () => {
     initLevelSelect();
 });
+
+// Global fonksiyonları window'a ekle
+window.startSelectedLevel = startSelectedLevel;
+window.backToMenu = backToMenu;
+window.selectLevel = selectLevel;
 
 
 // ============================================
