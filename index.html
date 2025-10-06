@@ -5,29 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Oyun Merkezi</title>
+    <title>Stick War Legacy</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="menu" class="menu">
-        <h1>🎮 Oyun Merkezi</h1>
-        <div class="game-grid">
-            <div class="game-card" onclick="startGame('soccer-legends')">
-                <div class="game-icon">⚽</div>
-                <h2>Soccer Legends 2021</h2>
-                <p>1v1 futbol maçı - Tek tuşla gol at!</p>
-            </div>
-            <div class="game-card" onclick="startGame('soccer-random')">
-                <div class="game-icon">🤣</div>
-                <h2>Soccer Random</h2>
-                <p>Çılgın fizik kurallarıyla komik futbol</p>
-            </div>
-            <div class="game-card" onclick="startGame('stick-war')">
-                <div class="game-icon">⚔️</div>
-                <h2>Stick War</h2>
-                <p>Ordu kur, düşmanı yen!</p>
-            </div>
+        <h1>⚔️ STICK WAR LEGACY</h1>
+        <div class="level-select">
+            <h2>Seviye Seç</h2>
+            <div class="level-grid" id="levelGrid"></div>
         </div>
+        <button class="start-btn" onclick="startSelectedLevel()">OYUNA BAŞLA</button>
     </div>
 
     <div id="game-container" class="game-container hidden">
