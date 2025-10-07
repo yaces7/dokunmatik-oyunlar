@@ -207,6 +207,28 @@ class StickWar {
         this.enemyLastSpawn = 0;
         this.lastPassiveIncome = Date.now();
         
+        // Birim üretim cooldown - YENİ!
+        this.spawnCooldowns = {
+            miner: 0,
+            swordsman: 0,
+            spearman: 0,
+            archer: 0,
+            mage: 0,
+            giant: 0
+        };
+        this.spawnCooldownMax = {
+            miner: 60,      // 1 saniye (60 frame)
+            swordsman: 120, // 2 saniye
+            spearman: 120,
+            archer: 150,    // 2.5 saniye
+            mage: 180,      // 3 saniye
+            giant: 240      // 4 saniye
+        };
+        
+        // Süre takibi
+        this.startTime = Date.now();
+        this.elapsedTime = 0;
+        
         this.handleKeyDown = this.handleKeyDown.bind(this);
         this.handleClick = this.handleClick.bind(this);
         this.handleMouseDown = this.handleMouseDown.bind(this);
@@ -354,6 +376,17 @@ class StickWar {
     spawnUnit(type) {
         const cost = this.getUnitCost(type);
         
+        // Cooldown kontrolü
+        if (this.spawnCooldowns[type] > 0) {
+            return; // Henüz hazır değil
+        }
+        
+        // Seviye kontrolü - sadece izin verilen birimleri üret
+        const allowedUnits = this.getAllowedUnits();
+        if (!allowedUnits.includes(type)) {
+            return; // Bu seviyede bu birim yok
+        }
+        
         if (this.gold >= cost) {
             this.gold -= cost;
             const upgrade = this.upgrades[type];
@@ -377,8 +410,11 @@ class StickWar {
                 attackAnim: 0
             });
             
+            // Cooldown başlat
+            this.spawnCooldowns[type] = this.spawnCooldownMax[type];
+            
             this.createParticles(200, canvas.height - 120, 10, '#2ecc71');
-            this.updateArchers(); // Okçuları güncelle
+            this.updateArchers();
         }
     }
     
@@ -391,6 +427,21 @@ class StickWar {
             upgrade.hp = Math.floor(upgrade.hp * 1.3);
             upgrade.cost = Math.floor(upgrade.cost * 1.5);
             this.createEffect('YÜKSELTME!', canvas.width / 2 + this.cameraX, 100, '#2ecc71');
+        }
+    }
+    
+    getAllowedUnits() {
+        // Seviyeye göre izin verilen birimler
+        if (this.level === 1) {
+            return ['miner', 'swordsman'];
+        } else if (this.level === 2) {
+            return ['miner', 'swordsman', 'archer'];
+        } else if (this.level <= 5) {
+            return ['miner', 'swordsman', 'spearman', 'archer'];
+        } else if (this.level <= 10) {
+            return ['miner', 'swordsman', 'spearman', 'archer', 'mage'];
+        } else {
+            return ['miner', 'swordsman', 'spearman', 'archer', 'mage', 'giant'];
         }
     }
     
@@ -424,11 +475,18 @@ class StickWar {
     
     update() {
         if (this.gameState !== 'playing') {
-            if (this.gameState === 'won') {
-                setTimeout(() => this.nextLevel(), 2000);
-            }
-            return;
+            return; // Butonlar gösterilecek, otomatik geçiş yok
         }
+        
+        // Süre takibi
+        this.elapsedTime = Math.floor((Date.now() - this.startTime) / 1000);
+        
+        // Spawn cooldown'ları azalt
+        Object.keys(this.spawnCooldowns).forEach(key => {
+            if (this.spawnCooldowns[key] > 0) {
+                this.spawnCooldowns[key]--;
+            }
+        });
         
         // Pasif gelir
         const now = Date.now();

@@ -8,9 +8,9 @@ const LEVELS = [];
 function generateLevel(level) {
     const baseGold = 100;
     const goldIncrement = 25; // Her seviyede 25 artış
-    
+
     let difficulty, name, units, weights, spawnDelay, unitLevel;
-    
+
     // Zorluk ve birim tipleri seviyeye göre
     if (level === 1) {
         difficulty = "Kolay";
@@ -62,7 +62,7 @@ function generateLevel(level) {
         spawnDelay = Math.max(1200, 2000 - (level - 36) * 50);
         unitLevel = 4.2 + (level - 36) * 0.15;
     }
-    
+
     return {
         level: level,
         name: name,
