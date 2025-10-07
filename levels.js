@@ -16,7 +16,7 @@ const LEVELS = [
         enemyUnitLevel: 1.0,
         goldMineHp: 150
     },
-    
+
     // LEVEL 2
     {
         level: 2,
@@ -30,7 +30,7 @@ const LEVELS = [
         enemyUnitLevel: 1.0,
         goldMineHp: 150
     },
-    
+
     // LEVEL 3
     {
         level: 3,
@@ -44,7 +44,7 @@ const LEVELS = [
         enemyUnitLevel: 1.1,
         goldMineHp: 200
     },
-    
+
     // LEVEL 4
     {
         level: 4,
@@ -58,7 +58,7 @@ const LEVELS = [
         enemyUnitLevel: 1.2,
         goldMineHp: 200
     },
-    
+
     // LEVEL 5
     {
         level: 5,
@@ -72,7 +72,7 @@ const LEVELS = [
         enemyUnitLevel: 1.3,
         goldMineHp: 200
     },
-    
+
     // LEVEL 6
     {
         level: 6,
@@ -86,7 +86,7 @@ const LEVELS = [
         enemyUnitLevel: 1.4,
         goldMineHp: 250
     },
-    
+
     // LEVEL 7
     {
         level: 7,
@@ -100,7 +100,7 @@ const LEVELS = [
         enemyUnitLevel: 1.5,
         goldMineHp: 250
     },
-    
+
     // LEVEL 8
     {
         level: 8,
@@ -114,7 +114,7 @@ const LEVELS = [
         enemyUnitLevel: 1.6,
         goldMineHp: 250
     },
-    
+
     // LEVEL 9
     {
         level: 9,
@@ -128,7 +128,7 @@ const LEVELS = [
         enemyUnitLevel: 1.7,
         goldMineHp: 300
     },
-    
+
     // LEVEL 10
     {
         level: 10,
@@ -142,7 +142,7 @@ const LEVELS = [
         enemyUnitLevel: 1.8,
         goldMineHp: 300
     },
-    
+
     // LEVEL 11
     {
         level: 11,
@@ -156,7 +156,7 @@ const LEVELS = [
         enemyUnitLevel: 1.9,
         goldMineHp: 300
     },
-    
+
     // LEVEL 12
     {
         level: 12,
@@ -170,7 +170,7 @@ const LEVELS = [
         enemyUnitLevel: 2.0,
         goldMineHp: 350
     },
-    
+
     // LEVEL 13
     {
         level: 13,
@@ -184,7 +184,7 @@ const LEVELS = [
         enemyUnitLevel: 2.1,
         goldMineHp: 350
     },
-    
+
     // LEVEL 14
     {
         level: 14,
@@ -198,7 +198,7 @@ const LEVELS = [
         enemyUnitLevel: 2.2,
         goldMineHp: 350
     },
-    
+
     // LEVEL 15
     {
         level: 15,
@@ -212,7 +212,7 @@ const LEVELS = [
         enemyUnitLevel: 2.3,
         goldMineHp: 400
     },
-    
+
     // LEVEL 16
     {
         level: 16,
@@ -226,7 +226,7 @@ const LEVELS = [
         enemyUnitLevel: 2.4,
         goldMineHp: 400
     },
-    
+
     // LEVEL 17
     {
         level: 17,
@@ -240,7 +240,7 @@ const LEVELS = [
         enemyUnitLevel: 2.5,
         goldMineHp: 400
     },
-    
+
     // LEVEL 18
     {
         level: 18,
@@ -254,7 +254,7 @@ const LEVELS = [
         enemyUnitLevel: 2.6,
         goldMineHp: 450
     },
-    
+
     // LEVEL 19
     {
         level: 19,
@@ -268,7 +268,7 @@ const LEVELS = [
         enemyUnitLevel: 2.8,
         goldMineHp: 450
     },
-    
+
     // LEVEL 20 - FINAL BOSS
     {
         level: 20,
