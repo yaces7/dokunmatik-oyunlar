@@ -190,6 +190,10 @@ class StickWar {
         this.archers = [];
         this.enemyArchers = [];
         
+        // Çekilme modu için saklanan askerler
+        this.retreatedUnits = [];
+        this.enemyRetreatedUnits = [];
+        
         this.selectedUnit = 'miner';
         
         this.upgrades = {
@@ -362,10 +366,51 @@ class StickWar {
     }
     
     setMode(mode) {
+        const oldMode = this.mode;
         this.mode = mode;
-        this.units.forEach(u => {
-            u.orderMode = mode;
-        });
+        
+        // Çekilme moduna geçiş
+        if (mode === 'retreat' && oldMode !== 'retreat') {
+            // Tüm savaşçı birimlerini sakla (miner hariç)
+            const fighters = this.units.filter(u => u.type !== 'miner');
+            this.retreatedUnits = fighters.map(u => ({...u})); // Kopyala
+            
+            // Savaşçıları kaldır
+            this.units = this.units.filter(u => u.type === 'miner');
+            
+            // Her 3 savaşçı için 1 okçu oluştur
+            const archerCount = Math.floor(fighters.length / 3);
+            this.archers = [];
+            for (let i = 0; i < archerCount; i++) {
+                this.archers.push({
+                    x: 150 + i * 30,
+                    y: canvas.height - 200 - i * 15,
+                    hp: 50,
+                    maxHp: 50,
+                    damage: 20,
+                    attackCooldown: 0,
+                    bowPull: 0 // Ok çekme animasyonu
+                });
+            }
+        }
+        // Çekilme modundan çıkış
+        else if (oldMode === 'retreat' && mode !== 'retreat') {
+            // Saklanan askerleri geri getir
+            this.retreatedUnits.forEach(u => {
+                u.orderMode = mode;
+                this.units.push(u);
+            });
+            this.retreatedUnits = [];
+            
+            // Okçuları kaldır
+            this.archers = [];
+        }
+        // Normal mod değişimi
+        else {
+            this.units.forEach(u => {
+                u.orderMode = mode;
+            });
+        }
     }
     
     getUnitCost(type) {
@@ -391,9 +436,16 @@ class StickWar {
             this.gold -= cost;
             const upgrade = this.upgrades[type];
             
+            // Dizilim için pozisyon hesapla - yan yana sıralama
+            const existingUnits = this.units.filter(u => u.x < 400);
+            const row = Math.floor(existingUnits.length / 5); // Her sırada 5 birim
+            const col = existingUnits.length % 5;
+            const spawnX = 200 + col * 35;
+            const spawnY = canvas.height - 120 - row * 40;
+            
             this.units.push({
-                x: 200,
-                y: canvas.height - 120,
+                x: spawnX,
+                y: spawnY,
                 type: type,
                 hp: upgrade.hp,
                 maxHp: upgrade.hp,
@@ -407,13 +459,15 @@ class StickWar {
                 state: 'idle',
                 orderMode: this.mode,
                 defendPosition: 600,
-                attackAnim: 0
+                attackAnim: 0,
+                formationRow: row,
+                formationCol: col
             });
             
             // Cooldown başlat
             this.spawnCooldowns[type] = this.spawnCooldownMax[type];
             
-            this.createParticles(200, canvas.height - 120, 10, '#2ecc71');
+            this.createParticles(spawnX, spawnY, 10, '#2ecc71');
             this.updateArchers();
         }
     }
@@ -576,70 +630,68 @@ class StickWar {
     }
     
     updateArcherUnits() {
-        // Oyuncu okçuları
+        // Oyuncu okçuları - sadece çekilme modunda aktif
         this.archers.forEach(archer => {
-            // Çekilme modunda geri çekil
-            if (this.mode === 'retreat') {
-                if (archer.x > 150) {
-                    archer.x -= 3;
-                }
-                return;
-            }
-            
             // Düşman bul ve ateş et
             let target = this.findNearestTarget(archer, this.enemyUnits);
-            if (target && Math.abs(archer.x - target.x) < 300) {
-                archer.attackCooldown--;
+            if (target && Math.abs(archer.x - target.x) < 400) {
+                // Yay çekme animasyonu
                 if (archer.attackCooldown <= 0) {
-                    this.projectiles.push({
-                        x: archer.x,
-                        y: archer.y,
-                        vx: (target.x - archer.x) / 30,
-                        vy: -3,
-                        damage: archer.damage,
-                        type: 'archer',
-                        friendly: true
-                    });
-                    archer.attackCooldown = 60;
+                    if (archer.bowPull < 20) {
+                        archer.bowPull += 2; // Yay çekiliyor
+                    } else {
+                        // Ok at!
+                        const angle = Math.atan2(target.y - archer.y, target.x - archer.x);
+                        const speed = 8;
+                        this.projectiles.push({
+                            x: archer.x,
+                            y: archer.y,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed - 2, // Yukarı eğim
+                            damage: archer.damage,
+                            type: 'archer',
+                            friendly: true
+                        });
+                        archer.attackCooldown = 80; // 1.3 saniye
+                        archer.bowPull = 0;
+                    }
+                } else {
+                    archer.attackCooldown--;
+                    archer.bowPull = 0;
                 }
+            } else {
+                archer.bowPull = 0;
             }
         });
         
-        // Düşman okçuları
-        const enemyNonMinerCount = this.enemyUnits.filter(u => u.type !== 'miner').length;
-        const neededEnemyArchers = Math.floor(enemyNonMinerCount / 3);
-        
-        while (this.enemyArchers.length > neededEnemyArchers) {
-            this.enemyArchers.pop();
-        }
-        
-        while (this.enemyArchers.length < neededEnemyArchers) {
-            this.enemyArchers.push({
-                x: 2850,
-                y: canvas.height - 200,
-                hp: 50,
-                maxHp: 50,
-                damage: 15,
-                attackCooldown: 0
-            });
-        }
-        
+        // Düşman okçuları - sadece çekilme modunda aktif
         this.enemyArchers.forEach(archer => {
             let target = this.findNearestTarget(archer, this.units);
-            if (target && Math.abs(archer.x - target.x) < 300) {
-                archer.attackCooldown--;
+            if (target && Math.abs(archer.x - target.x) < 400) {
                 if (archer.attackCooldown <= 0) {
-                    this.projectiles.push({
-                        x: archer.x,
-                        y: archer.y,
-                        vx: (target.x - archer.x) / 30,
-                        vy: -3,
-                        damage: archer.damage,
-                        type: 'archer',
-                        friendly: false
-                    });
-                    archer.attackCooldown = 60;
+                    if (archer.bowPull < 20) {
+                        archer.bowPull += 2;
+                    } else {
+                        const angle = Math.atan2(target.y - archer.y, target.x - archer.x);
+                        const speed = 8;
+                        this.projectiles.push({
+                            x: archer.x,
+                            y: archer.y,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed - 2,
+                            damage: archer.damage,
+                            type: 'archer',
+                            friendly: false
+                        });
+                        archer.attackCooldown = 80;
+                        archer.bowPull = 0;
+                    }
+                } else {
+                    archer.attackCooldown--;
+                    archer.bowPull = 0;
                 }
+            } else {
+                archer.bowPull = 0;
             }
         });
     }
@@ -968,9 +1020,16 @@ class StickWar {
                     const upgrade = this.upgrades[selectedType];
                     const unitLevel = this.levelConfig.enemyUnitLevel;
                     
+                    // Dizilim için pozisyon hesapla
+                    const existingUnits = this.enemyUnits.filter(u => u.x > 2600);
+                    const row = Math.floor(existingUnits.length / 5);
+                    const col = existingUnits.length % 5;
+                    const spawnX = 2750 - col * 35;
+                    const spawnY = canvas.height - 120 - row * 40;
+                    
                     this.enemyUnits.push({
-                        x: 2750,
-                        y: canvas.height - 120,
+                        x: spawnX,
+                        y: spawnY,
                         type: selectedType,
                         hp: upgrade.hp * unitLevel,
                         maxHp: upgrade.hp * unitLevel,
@@ -982,9 +1041,11 @@ class StickWar {
                         mining: false,
                         targetMine: null,
                         state: 'idle',
-                        orderMode: this.enemyStrategy.mode === 'defending' ? 'defend' : 'attack',
+                        orderMode: this.enemyStrategy.mode === 'defending' ? 'defend' : this.enemyStrategy.mode === 'retreat' ? 'retreat' : 'attack',
                         attackAnim: 0,
-                        defendPosition: 2400
+                        defendPosition: 2400,
+                        formationRow: row,
+                        formationCol: col
                     });
                     
                     this.enemyLastSpawn = Date.now();
@@ -1009,35 +1070,67 @@ class StickWar {
     updateEnemyStrategy() {
         const playerArmy = this.units.filter(u => u.type !== 'miner').length;
         const enemyArmy = this.enemyUnits.filter(u => u.type !== 'miner').length;
+        const oldMode = this.enemyStrategy.mode;
         
         // Strateji kararı
         if (enemyArmy < this.enemyStrategy.targetArmySize) {
             // Ordu küçükse, ordu kur
             this.enemyStrategy.mode = 'building';
+        } else if (playerArmy > enemyArmy * 2) {
+            // Oyuncu çok çok güçlüyse, ÇEKİL!
+            this.enemyStrategy.mode = 'retreat';
         } else if (enemyArmy > playerArmy * 1.5) {
             // Düşmandan çok güçlüyse, saldır
             this.enemyStrategy.mode = 'attacking';
-            // Tüm birimlere saldırı emri ver
-            this.enemyUnits.forEach(u => {
-                if (u.type !== 'miner') {
-                    u.orderMode = 'attack';
-                }
-            });
         } else if (playerArmy > enemyArmy * 1.5) {
-            // Oyuncu çok güçlüyse, savun
+            // Oyuncu güçlüyse, savun
             this.enemyStrategy.mode = 'defending';
-            // Tüm birimlere savunma emri ver
-            this.enemyUnits.forEach(u => {
-                if (u.type !== 'miner') {
-                    u.orderMode = 'defend';
-                }
-            });
         } else {
             // Dengeli durumda, saldır
             this.enemyStrategy.mode = 'attacking';
+        }
+        
+        // Çekilme moduna geçiş
+        if (this.enemyStrategy.mode === 'retreat' && oldMode !== 'retreat') {
+            const fighters = this.enemyUnits.filter(u => u.type !== 'miner');
+            this.enemyRetreatedUnits = fighters.map(u => ({...u}));
+            this.enemyUnits = this.enemyUnits.filter(u => u.type === 'miner');
+            
+            // Okçular oluştur
+            const archerCount = Math.floor(fighters.length / 3);
+            this.enemyArchers = [];
+            for (let i = 0; i < archerCount; i++) {
+                this.enemyArchers.push({
+                    x: 2850 - i * 30,
+                    y: canvas.height - 200 - i * 15,
+                    hp: 50,
+                    maxHp: 50,
+                    damage: 20,
+                    attackCooldown: 0,
+                    bowPull: 0
+                });
+            }
+        }
+        // Çekilme modundan çıkış
+        else if (oldMode === 'retreat' && this.enemyStrategy.mode !== 'retreat') {
+            this.enemyRetreatedUnits.forEach(u => {
+                u.orderMode = this.enemyStrategy.mode === 'defending' ? 'defend' : 'attack';
+                this.enemyUnits.push(u);
+            });
+            this.enemyRetreatedUnits = [];
+            this.enemyArchers = [];
+        }
+        // Normal mod değişimi
+        else if (this.enemyStrategy.mode === 'attacking') {
             this.enemyUnits.forEach(u => {
                 if (u.type !== 'miner') {
                     u.orderMode = 'attack';
+                }
+            });
+        } else if (this.enemyStrategy.mode === 'defending') {
+            this.enemyUnits.forEach(u => {
+                if (u.type !== 'miner') {
+                    u.orderMode = 'defend';
                 }
             });
         }
@@ -1342,7 +1435,8 @@ class StickWar {
             ctx.fillStyle = '#f39c12';
             ctx.font = '12px Arial';
             const strategyText = this.enemyStrategy.mode === 'building' ? '🏗️ Ordu Kuruyor' : 
-                                 this.enemyStrategy.mode === 'attacking' ? '⚔️ Saldırıyor' : '🛡️ Savunuyor';
+                                 this.enemyStrategy.mode === 'attacking' ? '⚔️ Saldırıyor' : 
+                                 this.enemyStrategy.mode === 'retreat' ? '🏃 Çekiliyor' : '🛡️ Savunuyor';
             ctx.fillText(`Düşman: ${strategyText}`, 950, 55);
             ctx.fillText(`Hedef: ${this.enemyStrategy.targetArmySize} asker`, 950, 72);
         }
@@ -1597,17 +1691,99 @@ class StickWar {
     }
     
     drawArcher(ctx, archer, isPlayer) {
+        // Gövde
         ctx.fillStyle = isPlayer ? '#8B4513' : '#8B0000';
-        ctx.fillRect(archer.x, archer.y, 20, 30);
+        ctx.fillRect(archer.x - 10, archer.y + 10, 20, 30);
         
-        ctx.fillStyle = 'white';
-        ctx.font = '20px Arial';
-        ctx.fillText('🏹', archer.x + 2, archer.y + 20);
+        // Baş
+        ctx.beginPath();
+        ctx.arc(archer.x, archer.y + 5, 8, 0, Math.PI * 2);
+        ctx.fill();
         
+        // Yay
+        ctx.strokeStyle = '#654321';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        if (isPlayer) {
+            ctx.arc(archer.x + 15, archer.y + 20, 12, -Math.PI/2, Math.PI/2);
+        } else {
+            ctx.arc(archer.x - 15, archer.y + 20, 12, Math.PI/2, -Math.PI/2);
+        }
+        ctx.stroke();
+        
+        // Yay kirişi ve ok (çekilme animasyonu)
+        if (archer.bowPull > 0) {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            if (isPlayer) {
+                // Yay kirişi çekilmiş
+                const pullX = archer.x + 15 - archer.bowPull;
+                ctx.moveTo(archer.x + 15, archer.y + 8);
+                ctx.lineTo(pullX, archer.y + 20);
+                ctx.lineTo(archer.x + 15, archer.y + 32);
+                ctx.stroke();
+                
+                // Ok
+                ctx.strokeStyle = '#f39c12';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(pullX, archer.y + 20);
+                ctx.lineTo(pullX - 15, archer.y + 20);
+                ctx.stroke();
+                
+                // Ok ucu
+                ctx.fillStyle = '#c0392b';
+                ctx.beginPath();
+                ctx.moveTo(pullX - 15, archer.y + 20);
+                ctx.lineTo(pullX - 20, archer.y + 18);
+                ctx.lineTo(pullX - 20, archer.y + 22);
+                ctx.fill();
+            } else {
+                // Düşman okçu - sola çekiyor
+                const pullX = archer.x - 15 + archer.bowPull;
+                ctx.moveTo(archer.x - 15, archer.y + 8);
+                ctx.lineTo(pullX, archer.y + 20);
+                ctx.lineTo(archer.x - 15, archer.y + 32);
+                ctx.stroke();
+                
+                // Ok
+                ctx.strokeStyle = '#f39c12';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(pullX, archer.y + 20);
+                ctx.lineTo(pullX + 15, archer.y + 20);
+                ctx.stroke();
+                
+                // Ok ucu
+                ctx.fillStyle = '#c0392b';
+                ctx.beginPath();
+                ctx.moveTo(pullX + 15, archer.y + 20);
+                ctx.lineTo(pullX + 20, archer.y + 18);
+                ctx.lineTo(pullX + 20, archer.y + 22);
+                ctx.fill();
+            }
+        } else {
+            // Normal yay kirişi
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            if (isPlayer) {
+                ctx.moveTo(archer.x + 15, archer.y + 8);
+                ctx.lineTo(archer.x + 15, archer.y + 32);
+            } else {
+                ctx.moveTo(archer.x - 15, archer.y + 8);
+                ctx.lineTo(archer.x - 15, archer.y + 32);
+            }
+            ctx.stroke();
+        }
+        
+        // HP bar
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(archer.x, archer.y - 8, 20, 4);
+        ctx.fillRect(archer.x - 15, archer.y - 12, 30, 5);
         ctx.fillStyle = isPlayer ? '#2ecc71' : '#e74c3c';
-        ctx.fillRect(archer.x, archer.y - 8, 20 * (archer.hp / archer.maxHp), 4);
+        ctx.fillRect(archer.x - 15, archer.y - 12, 30 * (archer.hp / archer.maxHp), 5);
     }
     
     cleanup() {
