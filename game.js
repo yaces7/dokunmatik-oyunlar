@@ -1029,17 +1029,22 @@ class StickWar {
     
     nextLevel() {
         // Seviyeyi artır
-        this.level++;
+        const nextLevelNum = this.level + 1;
         
         // Maksimum seviyeyi kontrol et
-        if (this.level > getTotalLevels()) {
-            this.level = getTotalLevels();
+        if (nextLevelNum > getTotalLevels()) {
             this.gameState = 'won';
             this.createEffect('TÜM SEVİYELER TAMAMLANDI!', this.worldWidth / 2, canvas.height / 2, '#FFD700');
             return;
         }
         
-        // Yeni seviye config'ini al
+        // Kilidi aç
+        if (nextLevelNum > unlockedLevels) {
+            unlockedLevels = nextLevelNum;
+        }
+        
+        // Yeni seviye başlat
+        this.level = nextLevelNum;
         this.levelConfig = getLevelConfig(this.level);
         this.difficulty = this.levelConfig.difficulty;
         
@@ -1056,6 +1061,8 @@ class StickWar {
         this.particles = [];
         this.effects = [];
         this.cameraX = 0;
+        this.enemyStrategy = null;
+        this.enemyLastSpawn = 0;
         
         // Statüleri güncelle
         this.playerStatue.hp = this.playerStatue.maxHp;
@@ -1073,10 +1080,9 @@ class StickWar {
         // Düşman altınını güncelle
         this.enemyGold = this.levelConfig.enemyGold;
         
-        // Kilidi aç
-        if (this.level > unlockedLevels) {
-            unlockedLevels = this.level;
-        }
+        // Süreyi sıfırla
+        this.startTime = Date.now();
+        this.elapsedTime = 0;
     }
     
     createParticles(x, y, count, color) {
