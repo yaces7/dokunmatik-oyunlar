@@ -635,36 +635,64 @@ class StickWar {
                 let target = this.findNearestTarget(u, enemies);
                 let targetStatue = isPlayer ? this.enemyStatue : this.playerStatue;
                 
-                if (isPlayer) {
-                    if (u.orderMode === 'retreat') {
+                // Çekilme modu
+                if (u.orderMode === 'retreat') {
+                    if (isPlayer) {
                         if (u.x > 250) {
                             u.x -= u.speed * 2;
                             u.state = 'retreating';
                         } else {
                             u.state = 'idle';
                         }
-                        return;
+                    } else {
+                        if (u.x < 2600) {
+                            u.x += u.speed * 2;
+                            u.state = 'retreating';
+                        } else {
+                            u.state = 'idle';
+                        }
                     }
-                    
-                    if (u.orderMode === 'defend') {
-                        if (target && Math.abs(u.x - target.x) < u.range + 150) {
-                            let dist = Math.abs(u.x - target.x);
-                            if (dist < u.range) {
-                                u.state = 'attacking';
-                                u.attackCooldown--;
-                                if (u.attackCooldown <= 0) {
-                                    this.attack(u, target, isPlayer);
-                                    u.attackCooldown = u.type === 'archer' ? 60 : u.type === 'mage' ? 80 : u.type === 'giant' ? 50 : 40;
-                                }
-                            } else {
-                                if (u.x < u.defendPosition) {
+                    return;
+                }
+                
+                // Savunma modu
+                if (u.orderMode === 'defend') {
+                    if (target && Math.abs(u.x - target.x) < u.range + 150) {
+                        let dist = Math.abs(u.x - target.x);
+                        if (dist < u.range) {
+                            u.state = 'attacking';
+                            u.attackCooldown--;
+                            if (u.attackCooldown <= 0) {
+                                this.attack(u, target, isPlayer);
+                                u.attackCooldown = u.type === 'archer' ? 60 : u.type === 'mage' ? 80 : u.type === 'giant' ? 50 : 40;
+                            }
+                        } else {
+                            // Savunma pozisyonuna dön
+                            if (isPlayer) {
+                                if (u.x < u.defendPosition - 20) {
                                     u.x += u.speed * 0.8;
                                     u.state = 'moving';
+                                } else if (u.x > u.defendPosition + 20) {
+                                    u.x -= u.speed * 0.8;
+                                    u.state = 'returning';
+                                } else {
+                                    u.state = 'defending';
+                                }
+                            } else {
+                                if (u.x > u.defendPosition + 20) {
+                                    u.x -= u.speed * 0.8;
+                                    u.state = 'moving';
+                                } else if (u.x < u.defendPosition - 20) {
+                                    u.x += u.speed * 0.8;
+                                    u.state = 'returning';
                                 } else {
                                     u.state = 'defending';
                                 }
                             }
-                        } else {
+                        }
+                    } else {
+                        // Düşman yok, pozisyonda kal
+                        if (isPlayer) {
                             if (u.x > u.defendPosition + 20) {
                                 u.x -= u.speed * 0.8;
                                 u.state = 'returning';
@@ -674,9 +702,19 @@ class StickWar {
                             } else {
                                 u.state = 'defending';
                             }
+                        } else {
+                            if (u.x < u.defendPosition - 20) {
+                                u.x += u.speed * 0.8;
+                                u.state = 'returning';
+                            } else if (u.x > u.defendPosition + 20) {
+                                u.x -= u.speed * 0.5;
+                                u.state = 'moving';
+                            } else {
+                                u.state = 'defending';
+                            }
                         }
-                        return;
                     }
+                    return;
                 }
                 
                 // Saldırı modu
@@ -792,51 +830,134 @@ class StickWar {
     updateEnemyAI() {
         const spawnDelay = this.levelConfig.enemySpawnDelay;
         
+        // Düşman AI stratejisi - seviyeye göre
+        if (!this.enemyStrategy) {
+            this.enemyStrategy = {
+                mode: 'building', // building, attacking, defending
+                targetArmySize: this.getTargetArmySize(),
+                lastModeChange: Date.now()
+            };
+        }
+        
+        // Strateji değiştirme (her 15 saniyede bir)
+        if (Date.now() - this.enemyStrategy.lastModeChange > 15000) {
+            this.updateEnemyStrategy();
+        }
+        
+        // Birim üretimi
         if (Date.now() - this.enemyLastSpawn > spawnDelay) {
             const unitTypes = this.levelConfig.enemyUnits;
             const weights = this.levelConfig.enemyUnitWeights;
             
-            let rand = Math.random();
-            let cumulative = 0;
-            let selectedType = unitTypes[0];
+            // Strateji moduna göre üretim kararı
+            let shouldSpawn = false;
             
-            for (let i = 0; i < unitTypes.length; i++) {
-                cumulative += weights[i];
-                if (rand < cumulative) {
-                    selectedType = unitTypes[i];
-                    break;
-                }
+            if (this.enemyStrategy.mode === 'building') {
+                // Ordu kurma modu - hedef sayıya ulaşana kadar üret
+                const currentArmy = this.enemyUnits.filter(u => u.type !== 'miner').length;
+                shouldSpawn = currentArmy < this.enemyStrategy.targetArmySize;
+            } else if (this.enemyStrategy.mode === 'attacking') {
+                // Saldırı modu - sürekli üret
+                shouldSpawn = true;
+            } else {
+                // Savunma modu - sadece az birim varsa üret
+                const currentArmy = this.enemyUnits.filter(u => u.type !== 'miner').length;
+                shouldSpawn = currentArmy < 5;
             }
             
-            const cost = this.getUnitCost(selectedType);
-            if (this.enemyGold >= cost) {
-                this.enemyGold -= cost;
-                const upgrade = this.upgrades[selectedType];
-                const unitLevel = this.levelConfig.enemyUnitLevel;
+            if (shouldSpawn) {
+                let rand = Math.random();
+                let cumulative = 0;
+                let selectedType = unitTypes[0];
                 
-                this.enemyUnits.push({
-                    x: 2750,
-                    y: canvas.height - 120,
-                    type: selectedType,
-                    hp: upgrade.hp * unitLevel,
-                    maxHp: upgrade.hp * unitLevel,
-                    damage: upgrade.damage * unitLevel,
-                    speed: selectedType === 'miner' ? 2.5 : selectedType === 'giant' ? 1.2 : selectedType === 'archer' ? 1.8 : 2.2,
-                    range: selectedType === 'archer' ? 200 : selectedType === 'mage' ? 250 : 50,
-                    attackCooldown: 0,
-                    animFrame: 0,
-                    mining: false,
-                    targetMine: null,
-                    state: 'idle',
-                    orderMode: 'attack',
-                    attackAnim: 0
-                });
+                for (let i = 0; i < unitTypes.length; i++) {
+                    cumulative += weights[i];
+                    if (rand < cumulative) {
+                        selectedType = unitTypes[i];
+                        break;
+                    }
+                }
                 
-                this.enemyLastSpawn = Date.now();
+                const cost = this.getUnitCost(selectedType);
+                if (this.enemyGold >= cost) {
+                    this.enemyGold -= cost;
+                    const upgrade = this.upgrades[selectedType];
+                    const unitLevel = this.levelConfig.enemyUnitLevel;
+                    
+                    this.enemyUnits.push({
+                        x: 2750,
+                        y: canvas.height - 120,
+                        type: selectedType,
+                        hp: upgrade.hp * unitLevel,
+                        maxHp: upgrade.hp * unitLevel,
+                        damage: upgrade.damage * unitLevel,
+                        speed: selectedType === 'miner' ? 2.5 : selectedType === 'giant' ? 1.2 : selectedType === 'archer' ? 1.8 : 2.2,
+                        range: selectedType === 'archer' ? 200 : selectedType === 'mage' ? 250 : 50,
+                        attackCooldown: 0,
+                        animFrame: 0,
+                        mining: false,
+                        targetMine: null,
+                        state: 'idle',
+                        orderMode: this.enemyStrategy.mode === 'defending' ? 'defend' : 'attack',
+                        attackAnim: 0,
+                        defendPosition: 2400
+                    });
+                    
+                    this.enemyLastSpawn = Date.now();
+                }
             }
         }
         
         this.enemyGold += 0.15;
+    }
+    
+    getTargetArmySize() {
+        // Seviyeye göre hedef ordu büyüklüğü
+        if (this.level <= 3) return 3;
+        if (this.level <= 7) return 5;
+        if (this.level <= 15) return 8;
+        if (this.level <= 30) return 12;
+        return 15;
+    }
+    
+    updateEnemyStrategy() {
+        const playerArmy = this.units.filter(u => u.type !== 'miner').length;
+        const enemyArmy = this.enemyUnits.filter(u => u.type !== 'miner').length;
+        
+        // Strateji kararı
+        if (enemyArmy < this.enemyStrategy.targetArmySize) {
+            // Ordu küçükse, ordu kur
+            this.enemyStrategy.mode = 'building';
+        } else if (enemyArmy > playerArmy * 1.5) {
+            // Düşmandan çok güçlüyse, saldır
+            this.enemyStrategy.mode = 'attacking';
+            // Tüm birimlere saldırı emri ver
+            this.enemyUnits.forEach(u => {
+                if (u.type !== 'miner') {
+                    u.orderMode = 'attack';
+                }
+            });
+        } else if (playerArmy > enemyArmy * 1.5) {
+            // Oyuncu çok güçlüyse, savun
+            this.enemyStrategy.mode = 'defending';
+            // Tüm birimlere savunma emri ver
+            this.enemyUnits.forEach(u => {
+                if (u.type !== 'miner') {
+                    u.orderMode = 'defend';
+                }
+            });
+        } else {
+            // Dengeli durumda, saldır
+            this.enemyStrategy.mode = 'attacking';
+            this.enemyUnits.forEach(u => {
+                if (u.type !== 'miner') {
+                    u.orderMode = 'attack';
+                }
+            });
+        }
+        
+        this.enemyStrategy.lastModeChange = Date.now();
+        this.enemyStrategy.targetArmySize = this.getTargetArmySize();
     }
     
     nextLevel() {
@@ -1085,6 +1206,16 @@ class StickWar {
         ctx.font = '13px Arial';
         ctx.fillText(`Asker: ${this.units.length}`, 820, 55);
         ctx.fillText(`Okçu: ${this.archers.length}`, 820, 72);
+        
+        // Düşman stratejisi
+        if (this.enemyStrategy) {
+            ctx.fillStyle = '#f39c12';
+            ctx.font = '12px Arial';
+            const strategyText = this.enemyStrategy.mode === 'building' ? '🏗️ Ordu Kuruyor' : 
+                                 this.enemyStrategy.mode === 'attacking' ? '⚔️ Saldırıyor' : '🛡️ Savunuyor';
+            ctx.fillText(`Düşman: ${strategyText}`, 950, 55);
+            ctx.fillText(`Hedef: ${this.enemyStrategy.targetArmySize} asker`, 950, 72);
+        }
         
         // Kazanma/Kaybetme ekranı
         if (this.gameState === 'won') {
