@@ -31,6 +31,8 @@ window.addEventListener('resize', resizeCanvas);
 
 function initLevelSelect() {
     const levelGrid = document.getElementById('levelGrid');
+    if (!levelGrid) return;
+    
     levelGrid.innerHTML = '';
     
     const totalLevels = getTotalLevels();
@@ -47,7 +49,14 @@ function initLevelSelect() {
             if (i === selectedLevel) {
                 btn.classList.add('selected');
             }
-            btn.onclick = () => selectLevel(i);
+            // Event listener ekle
+            btn.addEventListener('click', () => {
+                selectLevel(i);
+            });
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                selectLevel(i);
+            });
         }
         
         levelGrid.appendChild(btn);
