@@ -1202,11 +1202,25 @@ class StickWar {
         const units = ['miner', 'swordsman', 'spearman', 'archer', 'mage', 'giant'];
         const icons = ['⛏️', '⚔️', '🗡️', '🏹', '🔮', '👹'];
         const costs = units.map(u => this.getUnitCost(u));
+        const allowedUnits = this.getAllowedUnits();
         
         units.forEach((unit, i) => {
             const x = 10 + i * 100;
             const canAfford = this.gold >= costs[i];
             const isSelected = this.selectedUnit === unit;
+            const isAllowed = allowedUnits.includes(unit);
+            const cooldown = this.spawnCooldowns[unit];
+            const maxCooldown = this.spawnCooldownMax[unit];
+            
+            // Kilitli birimler gri
+            if (!isAllowed) {
+                ctx.fillStyle = '#222';
+                ctx.fillRect(x, 10, 90, 70);
+                ctx.fillStyle = '#666';
+                ctx.font = '32px Arial';
+                ctx.fillText('🔒', x + 30, 50);
+                return;
+            }
             
             ctx.fillStyle = isSelected ? '#2ecc71' : canAfford ? '#555' : '#333';
             ctx.fillRect(x, 10, 90, 70);
@@ -1217,11 +1231,28 @@ class StickWar {
                 ctx.strokeRect(x, 10, 90, 70);
             }
             
-            ctx.fillStyle = 'white';
-            ctx.font = '32px Arial';
-            ctx.fillText(icons[i], x + 30, 50);
-            ctx.font = 'bold 12px Arial';
-            ctx.fillText(`${costs[i]}G`, x + 25, 70);
+            // Cooldown animasyonu (saat gibi)
+            if (cooldown > 0) {
+                const progress = cooldown / maxCooldown;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.beginPath();
+                ctx.moveTo(x + 45, 40);
+                ctx.arc(x + 45, 40, 35, -Math.PI/2, -Math.PI/2 + (Math.PI * 2 * progress));
+                ctx.lineTo(x + 45, 40);
+                ctx.fill();
+                
+                // Süre göster
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 16px Arial';
+                const seconds = Math.ceil(cooldown / 60);
+                ctx.fillText(seconds, x + 40, 45);
+            } else {
+                ctx.fillStyle = 'white';
+                ctx.font = '32px Arial';
+                ctx.fillText(icons[i], x + 30, 50);
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText(`${costs[i]}G`, x + 25, 70);
+            }
             
             const upgrade = this.upgrades[unit];
             ctx.fillStyle = '#f39c12';
@@ -1262,6 +1293,13 @@ class StickWar {
         ctx.font = 'bold 16px Arial';
         ctx.fillText(`Seviye ${this.level}: ${this.levelConfig.name}`, 620, 75);
         ctx.fillText(`${this.difficulty}`, 820, 75);
+        
+        // Süre göster
+        const minutes = Math.floor(this.elapsedTime / 60);
+        const seconds = this.elapsedTime % 60;
+        ctx.fillStyle = '#3498db';
+        ctx.font = 'bold 18px Arial';
+        ctx.fillText(`⏱️ ${minutes}:${seconds.toString().padStart(2, '0')}`, 950, 35);
         
         // Mod göstergesi
         ctx.fillStyle = 'white';
