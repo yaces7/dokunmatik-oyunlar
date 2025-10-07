@@ -33,7 +33,9 @@ function initLevelSelect() {
     const levelGrid = document.getElementById('levelGrid');
     levelGrid.innerHTML = '';
     
-    for (let i = 1; i <= 20; i++) {
+    const totalLevels = getTotalLevels();
+    
+    for (let i = 1; i <= totalLevels; i++) {
         const btn = document.createElement('div');
         btn.className = 'level-btn';
         btn.textContent = i;
@@ -133,26 +135,37 @@ window.selectLevel = selectLevel;
 class StickWar {
     constructor(startLevel = 1) {
         this.level = startLevel;
-        this.difficulty = this.getDifficulty(startLevel);
+        
+        // Seviye config'ini al
+        this.levelConfig = getLevelConfig(startLevel);
+        this.difficulty = this.levelConfig.difficulty;
+        
         this.mode = 'attack';
         this.gameState = 'playing';
         
-        // Kaynaklar - ARTIRILDI
+        // Kaynaklar
         this.gold = 400;
-        this.enemyGold = 200 + startLevel * 50;
+        this.enemyGold = this.levelConfig.enemyGold;
         this.goldPerSecond = 1;
         this.passiveIncome = 1;
         
-        // Harita kaydırma - YENİ!
-        this.worldWidth = 3000; // Dünya genişliği
-        this.cameraX = 0; // Kamera pozisyonu
+        // Harita kaydırma
+        this.worldWidth = 3000;
+        this.cameraX = 0;
         this.isDragging = false;
         this.dragStartX = 0;
         this.dragStartCameraX = 0;
         
         // Statüler
         this.playerStatue = { x: 100, y: 0, hp: 500, maxHp: 500, width: 60, height: 150 };
-        this.enemyStatue = { x: 2800, y: 0, hp: 500 + startLevel * 100, maxHp: 500 + startLevel * 100, width: 60, height: 150 };
+        this.enemyStatue = { 
+            x: 2800, 
+            y: 0, 
+            hp: this.levelConfig.enemyCastleHp, 
+            maxHp: this.levelConfig.enemyCastleHp, 
+            width: 60, 
+            height: 150 
+        };
         
         // Birimler
         this.units = [];
@@ -160,8 +173,8 @@ class StickWar {
         
         // Altın madenleri
         this.goldMines = [
-            { x: 800, y: 0, hp: 200, maxHp: 200, team: null, workers: 0, goldRate: 0.4 },
-            { x: 2200, y: 0, hp: 200, maxHp: 200, team: null, workers: 0, goldRate: 0.4 }
+            { x: 800, y: 0, hp: this.levelConfig.goldMineHp, maxHp: this.levelConfig.goldMineHp, team: null, workers: 0, goldRate: 0.4 },
+            { x: 2200, y: 0, hp: this.levelConfig.goldMineHp, maxHp: this.levelConfig.goldMineHp, team: null, workers: 0, goldRate: 0.4 }
         ];
         
         // Okçu sistemi - YENİ!
@@ -195,13 +208,7 @@ class StickWar {
         this.handleTouchEnd = this.handleTouchEnd.bind(this);
     }
     
-    getDifficulty(level) {
-        if (level >= 15) return 'İmkansız';
-        if (level >= 10) return 'Çok Zor';
-        if (level >= 6) return 'Zor';
-        if (level >= 3) return 'Normal';
-        return 'Kolay';
-    }
+
     
     init() {
         document.addEventListener('keydown', this.handleKeyDown);
@@ -766,15 +773,15 @@ class StickWar {
     }
     
     updateEnemyAI() {
-        const spawnDelay = this.difficulty === 'Kolay' ? 5000 : this.difficulty === 'Zor' ? 2500 : this.difficulty === 'İmkansız' ? 1500 : 3500;
+        const spawnDelay = this.levelConfig.enemySpawnDelay;
         
         if (Date.now() - this.enemyLastSpawn > spawnDelay) {
-            let unitTypes = ['swordsman', 'spearman', 'archer', 'mage', 'giant', 'miner'];
-            let weights = this.difficulty === 'İmkansız' ? [0.25, 0.25, 0.2, 0.15, 0.1, 0.05] : [0.3, 0.25, 0.2, 0.1, 0.05, 0.1];
+            const unitTypes = this.levelConfig.enemyUnits;
+            const weights = this.levelConfig.enemyUnitWeights;
             
             let rand = Math.random();
             let cumulative = 0;
-            let selectedType = 'swordsman';
+            let selectedType = unitTypes[0];
             
             for (let i = 0; i < unitTypes.length; i++) {
                 cumulative += weights[i];
@@ -788,14 +795,15 @@ class StickWar {
             if (this.enemyGold >= cost) {
                 this.enemyGold -= cost;
                 const upgrade = this.upgrades[selectedType];
+                const unitLevel = this.levelConfig.enemyUnitLevel;
                 
                 this.enemyUnits.push({
                     x: 2750,
                     y: canvas.height - 120,
                     type: selectedType,
-                    hp: upgrade.hp * (this.level * 0.2 + 0.8),
-                    maxHp: upgrade.hp * (this.level * 0.2 + 0.8),
-                    damage: upgrade.damage * (this.level * 0.15 + 0.85),
+                    hp: upgrade.hp * unitLevel,
+                    maxHp: upgrade.hp * unitLevel,
+                    damage: upgrade.damage * unitLevel,
                     speed: selectedType === 'miner' ? 2.5 : selectedType === 'giant' ? 1.2 : selectedType === 'archer' ? 1.8 : 2.2,
                     range: selectedType === 'archer' ? 200 : selectedType === 'mage' ? 250 : 50,
                     attackCooldown: 0,
@@ -814,15 +822,25 @@ class StickWar {
     }
     
     nextLevel() {
+        // Seviyeyi artır
         this.level++;
         
-        if (this.level >= 10) this.difficulty = 'İmkansız';
-        else if (this.level >= 6) this.difficulty = 'Zor';
-        else if (this.level >= 3) this.difficulty = 'Normal';
-        else this.difficulty = 'Kolay';
+        // Maksimum seviyeyi kontrol et
+        if (this.level > getTotalLevels()) {
+            this.level = getTotalLevels();
+            this.gameState = 'won';
+            this.createEffect('TÜM SEVİYELER TAMAMLANDI!', this.worldWidth / 2, canvas.height / 2, '#FFD700');
+            return;
+        }
         
+        // Yeni seviye config'ini al
+        this.levelConfig = getLevelConfig(this.level);
+        this.difficulty = this.levelConfig.difficulty;
+        
+        // Ödül ver
         this.gold += 250 + this.level * 50;
         
+        // Oyunu sıfırla
         this.gameState = 'playing';
         this.units = [];
         this.enemyUnits = [];
@@ -833,17 +851,26 @@ class StickWar {
         this.effects = [];
         this.cameraX = 0;
         
+        // Statüleri güncelle
         this.playerStatue.hp = this.playerStatue.maxHp;
-        this.enemyStatue.hp = 500 + (this.level - 1) * 100;
-        this.enemyStatue.maxHp = this.enemyStatue.hp;
+        this.enemyStatue.hp = this.levelConfig.enemyCastleHp;
+        this.enemyStatue.maxHp = this.levelConfig.enemyCastleHp;
         
+        // Madenleri güncelle
         this.goldMines.forEach(m => {
-            m.hp = m.maxHp;
+            m.hp = this.levelConfig.goldMineHp;
+            m.maxHp = this.levelConfig.goldMineHp;
             m.workers = 0;
             m.team = null;
         });
         
-        this.enemyGold = 200 + this.level * 30;
+        // Düşman altınını güncelle
+        this.enemyGold = this.levelConfig.enemyGold;
+        
+        // Kilidi aç
+        if (this.level > unlockedLevels) {
+            unlockedLevels = this.level;
+        }
     }
     
     createParticles(x, y, count, color) {
@@ -1027,8 +1054,8 @@ class StickWar {
         
         ctx.fillStyle = 'white';
         ctx.font = 'bold 16px Arial';
-        ctx.fillText(`Seviye: ${this.level}`, 620, 75);
-        ctx.fillText(`${this.difficulty}`, 720, 75);
+        ctx.fillText(`Seviye ${this.level}: ${this.levelConfig.name}`, 620, 75);
+        ctx.fillText(`${this.difficulty}`, 820, 75);
         
         // Mod göstergesi
         ctx.fillStyle = 'white';
