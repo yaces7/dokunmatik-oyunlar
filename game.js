@@ -1328,23 +1328,108 @@ class StickWar {
             ctx.fillRect(0, 0, w, h);
             ctx.fillStyle = '#2ecc71';
             ctx.font = 'bold 72px Arial';
-            ctx.fillText('ZAFER!', w/2 - 120, h/2 - 50);
+            ctx.fillText('ZAFER!', w/2 - 120, h/2 - 100);
             ctx.fillStyle = 'white';
             ctx.font = '28px Arial';
-            ctx.fillText(`Seviye ${this.level} Tamamlandı!`, w/2 - 180, h/2 + 20);
-            ctx.font = '20px Arial';
-            ctx.fillText('Yeni seviye başlıyor...', w/2 - 130, h/2 + 60);
+            ctx.fillText(`Seviye ${this.level} Tamamlandı!`, w/2 - 180, h/2 - 30);
+            
+            // Süre göster
+            const minutes = Math.floor(this.elapsedTime / 60);
+            const seconds = this.elapsedTime % 60;
+            ctx.font = '24px Arial';
+            ctx.fillText(`⏱️ Süre: ${minutes}:${seconds.toString().padStart(2, '0')}`, w/2 - 100, h/2 + 10);
+            
+            // Butonlar
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(w/2 - 220, h/2 + 50, 180, 60);
+            ctx.fillStyle = '#2ecc71';
+            ctx.fillRect(w/2 + 40, h/2 + 50, 180, 60);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText('ANA MENÜ', w/2 - 190, h/2 + 90);
+            ctx.fillText('SONRAKİ', w/2 + 70, h/2 + 90);
+            
+            // Buton tıklama kontrolü
+            if (!this.winButtonsAdded) {
+                this.winButtonsAdded = true;
+                const handleWinClick = (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = canvas.width / rect.width;
+                    const scaleY = canvas.height / rect.height;
+                    const x = (e.clientX - rect.left) * scaleX;
+                    const y = (e.clientY - rect.top) * scaleY;
+                    
+                    // Ana Menü butonu
+                    if (x > w/2 - 220 && x < w/2 - 40 && y > h/2 + 50 && y < h/2 + 110) {
+                        canvas.removeEventListener('click', handleWinClick);
+                        this.winButtonsAdded = false;
+                        backToMenu();
+                    }
+                    // Sonraki Seviye butonu
+                    else if (x > w/2 + 40 && x < w/2 + 220 && y > h/2 + 50 && y < h/2 + 110) {
+                        canvas.removeEventListener('click', handleWinClick);
+                        this.winButtonsAdded = false;
+                        this.nextLevel();
+                        this.startTime = Date.now(); // Süreyi sıfırla
+                    }
+                };
+                canvas.addEventListener('click', handleWinClick);
+            }
         } else if (this.gameState === 'lost') {
             ctx.fillStyle = 'rgba(0,0,0,0.8)';
             ctx.fillRect(0, 0, w, h);
             ctx.fillStyle = '#e74c3c';
             ctx.font = 'bold 72px Arial';
-            ctx.fillText('YENİLDİN!', w/2 - 160, h/2 - 50);
+            ctx.fillText('YENİLDİN!', w/2 - 160, h/2 - 100);
             ctx.fillStyle = 'white';
             ctx.font = '28px Arial';
-            ctx.fillText(`Seviye ${this.level} - ${this.difficulty}`, w/2 - 150, h/2 + 20);
-            ctx.font = '20px Arial';
-            ctx.fillText('Ana menüye dönmek için geri tuşuna bas', w/2 - 240, h/2 + 60);
+            ctx.fillText(`Seviye ${this.level} - ${this.difficulty}`, w/2 - 150, h/2 - 30);
+            
+            // Süre göster
+            const minutes = Math.floor(this.elapsedTime / 60);
+            const seconds = this.elapsedTime % 60;
+            ctx.font = '24px Arial';
+            ctx.fillText(`⏱️ Süre: ${minutes}:${seconds.toString().padStart(2, '0')}`, w/2 - 100, h/2 + 10);
+            
+            // Butonlar
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(w/2 - 220, h/2 + 50, 180, 60);
+            ctx.fillStyle = '#e67e22';
+            ctx.fillRect(w/2 + 40, h/2 + 50, 180, 60);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText('ANA MENÜ', w/2 - 190, h/2 + 90);
+            ctx.fillText('TEKRAR', w/2 + 80, h/2 + 90);
+            
+            // Buton tıklama kontrolü
+            if (!this.loseButtonsAdded) {
+                this.loseButtonsAdded = true;
+                const handleLoseClick = (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = canvas.width / rect.width;
+                    const scaleY = canvas.height / rect.height;
+                    const x = (e.clientX - rect.left) * scaleX;
+                    const y = (e.clientY - rect.top) * scaleY;
+                    
+                    // Ana Menü butonu
+                    if (x > w/2 - 220 && x < w/2 - 40 && y > h/2 + 50 && y < h/2 + 110) {
+                        canvas.removeEventListener('click', handleLoseClick);
+                        this.loseButtonsAdded = false;
+                        backToMenu();
+                    }
+                    // Tekrar butonu
+                    else if (x > w/2 + 40 && x < w/2 + 220 && y > h/2 + 50 && y < h/2 + 110) {
+                        canvas.removeEventListener('click', handleLoseClick);
+                        this.loseButtonsAdded = false;
+                        // Aynı seviyeyi tekrar başlat
+                        currentGame = new StickWar(this.level);
+                        currentGame.init();
+                    }
+                };
+                canvas.addEventListener('click', handleLoseClick);
+            }
         }
     }
     
