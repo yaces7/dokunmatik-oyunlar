@@ -902,12 +902,29 @@ class StickWar {
             this.enemyStrategy = {
                 mode: 'building', // building, attacking, defending
                 targetArmySize: this.getTargetArmySize(),
-                lastModeChange: Date.now()
+                lastModeChange: Date.now(),
+                lastCheck: Date.now()
             };
         }
         
-        // Strateji değiştirme (her 15 saniyede bir)
-        if (Date.now() - this.enemyStrategy.lastModeChange > 15000) {
+        // Hedef orduya ulaşıldı mı kontrol et (her saniye)
+        const currentArmy = this.enemyUnits.filter(u => u.type !== 'miner').length;
+        if (Date.now() - this.enemyStrategy.lastCheck > 1000) {
+            if (this.enemyStrategy.mode === 'building' && currentArmy >= this.enemyStrategy.targetArmySize) {
+                // Hedef orduya ulaşıldı, saldırıya geç!
+                this.enemyStrategy.mode = 'attacking';
+                this.enemyUnits.forEach(u => {
+                    if (u.type !== 'miner') {
+                        u.orderMode = 'attack';
+                    }
+                });
+                this.enemyStrategy.lastModeChange = Date.now();
+            }
+            this.enemyStrategy.lastCheck = Date.now();
+        }
+        
+        // Strateji değiştirme (her 20 saniyede bir - daha uzun süre)
+        if (Date.now() - this.enemyStrategy.lastModeChange > 20000) {
             this.updateEnemyStrategy();
         }
         
@@ -980,11 +997,13 @@ class StickWar {
     
     getTargetArmySize() {
         // Seviyeye göre hedef ordu büyüklüğü
-        if (this.level <= 3) return 3;
-        if (this.level <= 7) return 5;
-        if (this.level <= 15) return 8;
-        if (this.level <= 30) return 12;
-        return 15;
+        if (this.level === 1) return 2;  // İlk seviye çok kolay
+        if (this.level === 2) return 3;
+        if (this.level <= 5) return 4;
+        if (this.level <= 10) return 6;
+        if (this.level <= 20) return 10;
+        if (this.level <= 35) return 14;
+        return 18;
     }
     
     updateEnemyStrategy() {
