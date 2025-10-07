@@ -364,7 +364,8 @@ class StickWar {
                 targetMine: null,
                 state: 'idle',
                 orderMode: this.mode,
-                defendPosition: 600
+                defendPosition: 600,
+                attackAnim: 0
             });
             
             this.createParticles(200, canvas.height - 120, 10, '#2ecc71');
@@ -728,6 +729,7 @@ class StickWar {
     
     attack(attacker, target, isPlayer) {
         if (attacker.type === 'archer' || attacker.type === 'mage') {
+            // Uzaktan saldırı - mermi at
             this.projectiles.push({
                 x: attacker.x,
                 y: attacker.y + 10,
@@ -738,10 +740,25 @@ class StickWar {
                 friendly: isPlayer
             });
         } else {
+            // Yakın dövüş - animasyonlu saldırı
             let dist = Math.abs(attacker.x - target.x);
             if (dist < 50) {
+                // Hasar ver
                 target.hp -= attacker.damage;
+                
+                // Saldırı animasyonu - saldıran ileri atlar
+                attacker.attackAnim = 10;
+                
+                // Vuruş efekti
                 this.createParticles(target.x, target.y, 10, '#e74c3c');
+                this.createEffect(`-${attacker.damage}`, target.x, target.y - 20, '#e74c3c');
+                
+                // Hedef geri iter
+                if (isPlayer) {
+                    target.x += 5;
+                } else {
+                    target.x -= 5;
+                }
             }
         }
     }
@@ -811,7 +828,8 @@ class StickWar {
                     mining: false,
                     targetMine: null,
                     state: 'idle',
-                    orderMode: 'attack'
+                    orderMode: 'attack',
+                    attackAnim: 0
                 });
                 
                 this.enemyLastSpawn = Date.now();
@@ -1135,17 +1153,50 @@ class StickWar {
         const color = isPlayer ? colors[u.type] : '#e74c3c';
         const size = u.type === 'giant' ? 1.5 : 1;
         
+        // Saldırı animasyonu
+        let attackOffset = 0;
+        if (u.attackAnim) {
+            attackOffset = u.attackAnim;
+            u.attackAnim--;
+            if (isPlayer) {
+                u.x += 0.5;
+            } else {
+                u.x -= 0.5;
+            }
+        }
+        
+        // Savaş durumunda titreme efekti
+        let shakeX = 0;
+        let shakeY = 0;
+        if (u.state === 'attacking') {
+            shakeX = (Math.random() - 0.5) * 2;
+            shakeY = (Math.random() - 0.5) * 2;
+        }
+        
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.beginPath();
         ctx.ellipse(u.x + 10 * size, canvas.height - 105, 12 * size, 5, 0, 0, Math.PI * 2);
         ctx.fill();
         
+        // Gövde (shake efekti ile)
         ctx.fillStyle = color;
-        ctx.fillRect(u.x + 2, u.y + 10 * size, 16 * size, 25 * size);
+        ctx.fillRect(u.x + 2 + shakeX, u.y + 10 * size + shakeY, 16 * size, 25 * size);
         
+        // Baş
         ctx.beginPath();
-        ctx.arc(u.x + 10 * size, u.y + 8 * size, 8 * size, 0, Math.PI * 2);
+        ctx.arc(u.x + 10 * size + shakeX, u.y + 8 * size + shakeY, 8 * size, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Saldırı durumunda kırmızı glow
+        if (u.state === 'attacking') {
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = isPlayer ? '#2ecc71' : '#e74c3c';
+            ctx.beginPath();
+            ctx.arc(u.x + 10 * size, u.y + 20 * size, 25 * size, 0, Math.PI * 2);
+            ctx.fillStyle = isPlayer ? 'rgba(46, 204, 113, 0.2)' : 'rgba(231, 76, 60, 0.2)';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
         
         ctx.strokeStyle = color;
         ctx.lineWidth = 4 * size;
